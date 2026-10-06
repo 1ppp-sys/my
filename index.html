@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>全屏图片切换</title>
+    <title>Love u</title>
     <style>
       * {
         margin: 0;
@@ -294,3 +294,24 @@
     </script>
   </body>
 </html>
+<!--
+==================== GitHub Pages 部署注意事项 ====================
+
+1.【文件名大小写】GitHub Pages 跑在 Linux 服务器上，文件名区分大小写。
+   本页写的是 src="img1.png"（全小写），仓库里的图片必须也命名为全小写
+   img1.png ~ img6.png。若本地文件叫 IMG1.PNG 或 Img1.png，本地能打开、
+   线上会 404（图片加载不出来）。这是最常见的问题，优先检查。
+
+2.【目录结构】index.html 和 img1.png ~ img6.png 必须放在仓库根目录
+   （同一级），用相对路径 src="img1.png" 即可，不要放进子文件夹。
+
+3.【文件编码】本文件含中文注释，保存时必须用 UTF-8 编码（推荐无 BOM）。
+   若用 GBK/ANSI 保存，中文注释会乱码，但图片仍能正常加载。
+   顶部 <meta charset="UTF-8"> 已声明编码。
+
+4.【上传与开启】把 index.html + 6 张 png 一起 push 到仓库，然后在仓库
+   Settings → Pages → Source 选 main 分支 → Save，等几分钟即可访问。
+
+5.【手机测试】GitHub Pages 默认启用 HTTPS，手机浏览器可直接访问；
+   若手机上图片不显示，先回到第 1、2 条核对大小写和目录。
+-->
