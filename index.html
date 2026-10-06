@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>全屏图片切换</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        position: relative;
+        touch-action: none; /* 禁用浏览器默认手势，由 JS 完全接管滑动 */
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      /* 所有页面堆叠在视口中心，靠 z-index 分层，当前页在最上层 */
+      .slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        opacity: 0;
+        will-change: transform, opacity;
+      }
+
+      /* 拖拽中禁用过渡，让当前页紧贴手指位移 */
+      .slide.no-transition {
+        transition: none !important;
+      }
+
+      /* 图片保持原始比例，不拉伸不变形 */
+      .slide img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        display: block;
+        pointer-events: none;
+        -webkit-user-drag: none;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="slide"><img src="img1.png" alt="图片 1" /></div>
+    <div class="slide"><img src="img2.png" alt="图片 2" /></div>
+    <div class="slide"><img src="img3.png" alt="图片 3" /></div>
+    <div class="slide"><img src="img4.png" alt="图片 4" /></div>
+    <div class="slide"><img src="img5.png" alt="图片 5" /></div>
+    <div class="slide"><img src="img6.png" alt="图片 6" /></div>
+
+    <script>
+      const slides = document.querySelectorAll(".slide");
+      const total = slides.length;
+
+      const DURATION = 500; // 毫秒
+      const TRANSITION =
+        "transform " +
+        DURATION +
+        "ms cubic-bezier(0.22, 1, 0.36, 1), " +
+        "opacity " +
+        DURATION +
+        "ms cubic-bezier(0.4, 0, 0.2, 1)";
+
+      let currentIndex = 0; // 当前页
+      let isDragging = false;
+      let isAnimating = false;
+      let startY = 0,
+        lastY = 0,
+        lastTime = 0,
+        dragOffset = 0,
+        velocity = 0;
+
+      const DISTANCE_RATIO = 0.15; // 距离阈值 = 屏高 15%
+      const VELOCITY_THRESHOLD = 0.5; // 速度阈值 px/ms
+
+      function vh() {
+        return window.innerHeight;
+      }
+
+      // 归位：所有页回到中心，当前页在上层可见，其余隐藏
+      function resetLayers() {
+        slides.forEach((s, i) => {
+          s.classList.add("no-transition");
+          s.style.transform = "translateY(0px)";
+          s.style.opacity = i === currentIndex ? "1" : "0";
+          s.style.zIndex = i === currentIndex ? "2" : "1";
+        });
+      }
+
+      // 边缘阻尼：首尾页超界滑动时只轻微位移
+      function damp(raw) {
+        if (
+          (currentIndex === total - 1 && raw < 0) ||
+          (currentIndex === 0 && raw > 0)
+        ) {
+          return raw * 0.35;
+        }
+        return raw;
+      }
+
+      // 拖拽中：当前页跟手位移，目标页静止在中心被逐渐露出
+      function onMove(y) {
+        const raw = y - startY;
+        dragOffset = damp(raw);
+        const h = vh();
+        const cur = slides[currentIndex];
+
+        // 当前页跟手滑动，并随位移淡出
+        cur.style.transform = "translateY(" + dragOffset + "px)";
+        cur.style.opacity = String(Math.max(0, 1 - Math.abs(dragOffset) / h));
+
+        // 目标页：向上滑露出下一页，向下滑露出上一页
+        const dir = dragOffset < 0 ? 1 : -1;
+        const ti = currentIndex + dir;
+        slides.forEach((s, i) => {
+          if (i === currentIndex) return;
+          if (i === ti && ti >= 0 && ti < total) {
+            s.style.opacity = "1";
+            s.style.transform = "translateY(0px)";
+            s.style.zIndex = "1";
+          } else {
+            s.style.opacity = "0";
+          }
+        });
+      }
+
+      // 翻页：当前页滑出屏幕，目标页静止在中心成为新当前页
+      function animateTo(ti, dir) {
+        isAnimating = true;
+        const h = vh();
+        const cur = slides[currentIndex];
+        const target = slides[ti];
+        slides.forEach(function (s) {
+          s.classList.remove("no-transition");
+        });
+
+        // 当前页在上层：向上翻则向上滑出，向下翻则向下滑出
+        cur.style.zIndex = "2";
+        cur.style.transition = TRANSITION;
+        cur.style.transform = "translateY(" + -dir * h + "px)";
+        cur.style.opacity = "0";
+
+        // 目标页静止在中心被露出（无滑入动作）
+        target.style.zIndex = "1";
+        target.style.transition = TRANSITION;
+        target.style.transform = "translateY(0px)";
+        target.style.opacity = "1";
+
+        currentIndex = ti;
+
+        setTimeout(function () {
+          isAnimating = false;
+          slides.forEach((s, i) => {
+            if (i === currentIndex) {
+              s.style.zIndex = "2";
+              s.style.opacity = "1";
+            } else {
+              s.classList.add("no-transition");
+              s.style.zIndex = "1";
+              s.style.opacity = "0";
+              s.style.transform = "translateY(0px)";
+            }
+          });
+        }, DURATION + 30);
+      }
+
+      // 回弹：滑动距离/速度不够，当前页回到中心
+      function animateBack() {
+        isAnimating = true;
+        slides.forEach(function (s) {
+          s.classList.remove("no-transition");
+        });
+        const cur = slides[currentIndex];
+        cur.style.transition = TRANSITION;
+        cur.style.transform = "translateY(0px)";
+        cur.style.opacity = "1";
+        slides.forEach((s, i) => {
+          if (i === currentIndex) return;
+          s.style.transition = TRANSITION;
+          s.style.opacity = "0";
+          s.style.transform = "translateY(0px)";
+        });
+        setTimeout(function () {
+          isAnimating = false;
+        }, DURATION + 30);
+      }
+
+      // 单步翻页（滚轮 / 键盘）
+      function stepPage(dir) {
+        if (isAnimating || isDragging) return;
+        const ti = currentIndex + dir;
+        if (ti < 0 || ti >= total) return;
+        animateTo(ti, dir);
+      }
+
+      // ========== 手势监听 ==========
+      document.addEventListener("pointerdown", function (e) {
+        if (isAnimating) return;
+        isDragging = true;
+        startY = e.clientY;
+        lastY = e.clientY;
+        lastTime = performance.now();
+        dragOffset = 0;
+        velocity = 0;
+        slides.forEach(function (s) {
+          s.classList.add("no-transition");
+        });
+      });
+
+      document.addEventListener("pointermove", function (e) {
+        if (!isDragging) return;
+        const now = performance.now();
+        const y = e.clientY;
+        const dt = now - lastTime;
+        if (dt > 0) {
+          const instVel = (y - lastY) / dt;
+          velocity = velocity * 0.7 + instVel * 0.3; // 低通滤波平滑速度
+        }
+        lastY = y;
+        lastTime = now;
+        onMove(y);
+      });
+
+      function endDrag() {
+        if (!isDragging) return;
+        isDragging = false;
+        const h = vh();
+        const distThreshold = h * DISTANCE_RATIO;
+
+        let dir = 0;
+        // 向上滑 -> 下一页（当前页向上滑出）；向下滑 -> 上一页
+        if (dragOffset < -distThreshold || velocity < -VELOCITY_THRESHOLD)
+          dir = 1;
+        else if (dragOffset > distThreshold || velocity > VELOCITY_THRESHOLD)
+          dir = -1;
+
+        const ti = currentIndex + dir;
+        if (dir !== 0 && ti >= 0 && ti < total) {
+          animateTo(ti, dir);
+        } else {
+          animateBack();
+        }
+      }
+
+      document.addEventListener("pointerup", endDrag);
+      document.addEventListener("pointercancel", endDrag);
+
+      // 电脑端滚轮：向下滚 -> 下一页（画面向上移动）
+      document.addEventListener(
+        "wheel",
+        function (e) {
+          if (isDragging || isAnimating) return;
+          stepPage(e.deltaY > 0 ? 1 : -1);
+        },
+        { passive: true },
+      );
+
+      // 键盘上下方向键
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          stepPage(1);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          stepPage(-1);
+        }
+      });
+
+      // 窗口尺寸变化时归位
+      window.addEventListener("resize", resetLayers);
+
+      // 初始布局
+      resetLayers();
+    </script>
+  </body>
+</html>
